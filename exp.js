@@ -31,7 +31,7 @@ $(function () {
         $(this).children(".expand").html("[-] ");
     }, function () {
         $(this).next(".entryBody").slideUp();
-        $(this).children(".expand").html("[+] ");
+        $(this).children(".expand").html("[+] "); 
     });
 
 });
