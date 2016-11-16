@@ -385,7 +385,7 @@ function ExpLauncher(opts, canvas){
 	module.makeStimuli = function makeStimuli(wrapper, length, atEach, components, density){
 		
 		var attNumber = Object.keys(wrapper.components).length;
-		var distances = getDistancesArray(wrapper.difficulty, attNumber);
+		var distances = [3];
 		var rawTimeline = module.createRawSimilarityTimeline([Object.keys(wrapper.definitions)[0], Object.keys(wrapper.definitions)[1]], distances, length)
 		var vectorTimeline = module.createVectorialSimilarityTimeline(rawTimeline, wrapper.definitions);
 		vectorTimeline.forEach(function(elt, i, array) {
