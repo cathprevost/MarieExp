@@ -62,8 +62,9 @@ function run(settings){
 			display_element: $("#jsPsychTarget"),
 			timeline: exp.timeline,
 			on_finish: function(data){
+				var complete = serverPsych.count() < 2 ? false : true;
 				//jsPsych.data.displayData("json");
-				serverPsych.save(data, true, exp.meta);
+				serverPsych.save(data, complete, exp.meta);
 			},
 			on_trial_start:function(){
 				jsPsych.getDisplayElement()[0].scrollIntoView();
