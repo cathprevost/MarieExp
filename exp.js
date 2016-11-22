@@ -64,7 +64,12 @@ function run(settings){
 			on_finish: function(data){
 				var complete = serverPsych.count() < 2 ? false : true;
 				//jsPsych.data.displayData("json");
-				serverPsych.save(data, complete, exp.meta);
+				serverPsych.save({
+					data:data,
+					toSave:exp,
+					complete:complete,
+					previous: false
+				});
 			},
 			on_trial_start:function(){
 				jsPsych.getDisplayElement()[0].scrollIntoView();
