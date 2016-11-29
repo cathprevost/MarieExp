@@ -67,8 +67,7 @@ function run(settings){
 				serverPsych.save({
 					data:data,
 					toSave:exp,
-					complete:complete,
-					previous: false
+					complete:complete
 				});
 			},
 			on_trial_start:function(){
