@@ -135,6 +135,10 @@ function ExpLauncher(opts, canvas){
 			extraData.kind = extraData.firstStim == extraData.secondStim ? 'same' : 'different';
 			extraData.distance = elt.distance;
 			elt.data = extraData;
+			//run the tweaking function if provided
+			if(typeof options.distTweak == 'function'){
+				options.distTweak(elt)
+			}
 		});
 		return rawTimeline.slice(0, options.length);
 	}
@@ -145,7 +149,7 @@ function ExpLauncher(opts, canvas){
 	 * 
 	 * @param	{function}	distFnc	Function that receives the distance of the trial and converts it as you wish, useful to calibrate distances to only some values
 	 */
-	module.createVectorialSimilarityTimeline = function(rawTimeline, definitions, distFnc){
+	module.createVectorialSimilarityTimeline = function(rawTimeline, definitions){
 		var timeline=[];
 		rawTimeline.forEach(function(rawTrial, i, array) {
 			//first some sanity checks
@@ -156,7 +160,7 @@ function ExpLauncher(opts, canvas){
 			var vectors = engine.generateVectorPair({
 				firstType: definitions[rawTrial.pairLabel[0]],
 				secondType: definitions[rawTrial.pairLabel[1]],
-				distance: (typeof distFnc == 'undefined') ? rawTrial.data.distance : distFnc(rawTrial.data.distance)
+				distance: rawTrial.data.distance
 			})
 			trial.stimuli = vectors;
 			trial.data = rawTrial.data;
@@ -427,7 +431,6 @@ function ExpLauncher(opts, canvas){
 	 * @method
 	 * @param	{Object}			options				Parameter object
 	 * @param	{Object}			options.description	If set, the demanded parameters. will be chosen for you otherwise
-	 * @param	{boolean}			options.reuseStim		true if you wish to use the same stimuli for both categorizatio and similiraty
 	 * @param	{Function}			options.atEach			What to do once the timeline and stimuli are fully created
 	 * @param	{ServerSetting}		options.settings		The raw settings object fetched from the Django server. Should contain an entry named 'timeline' that is almost like a jsPsych timeline.
 	 * @param	{Function}			options.distTweak		A function that allows arbitrary modifications to each generated similarity trial just before stimuli are generated. receives the trial as single parameter. Use to set distances to arbiratry conditions.
@@ -526,10 +529,6 @@ function ExpLauncher(opts, canvas){
 		meta.current_exp = options.settings.current_exp;
 		meta.toSave = stimWrap;
 		return {meta: meta, timeline: timeline};
-		
-		
-		
-		
 	}
 	
 	function collectQuestionnaire(jsPsychTarget, inputDict){

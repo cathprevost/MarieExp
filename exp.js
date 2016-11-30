@@ -70,21 +70,21 @@ function run(settings){
 	launcher.loadMicroComponents(settings, function(){
 		
 		//we can now give the launcher a small function that takes a trial and can modify its properties (like distance) just before we use it to create stimuli
-		
+		function distTweak(trial){
+			if(trial.data.kind == "same"){
+				trial.data.distance = 3;
+			}
+			else{
+				trial.data.distance = 0;
+			}
+		}
 		
 		
 		var exp = launcher.createStandardExperiment({
 			settings: settings,
-			
-		},
-				settings, null, {reuseStim: true, saveDescription: true});
-		//verifier sil faut créer les définitions from scratch ou utiliser les anciennes qui nous sont données dans les settings
-		if(firstTime){
-			exp
-		}
-		else{
-			
-		}
+			distTweak : distTweak,
+			description : firstTime ? false : settings.oldParams //if not the first time, fetch the definitions from the oldParams!
+		});
 		
 		
 		exp.meta.startTime = new Date().toISOString();
