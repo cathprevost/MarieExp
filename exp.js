@@ -86,7 +86,7 @@ function run(settings){
 			description : firstTime ? false : settings.oldParams //if not the first time, fetch the definitions from the oldParams!
 		});
 		
-		
+		$progressLabel.destroy();
 		exp.meta.startTime = new Date().toISOString();
 		$bar.progressbar("destroy");
 		
@@ -108,7 +108,7 @@ function run(settings){
 				});
 			},
 			on_trial_start:function(){
-				jsPsych.getDisplayElement()[0].scrollIntoView();
+				$("#jsPsychTarget")[0].scrollIntoView();
 			}
 		})
 	})
