@@ -138,9 +138,9 @@ function ExpLauncher(opts, canvas){
 	 * takes a raw similarity timeline as returned by {@link ExpLauncher#createRawSimilarityTimeline}, your vectorial definitions of stimulus invariants, and return
 	 * A jsPsych timeline of similarity trials but not quite with real images, but a full vectorial definition for each stimuli ready to be created via a call to {@link stimEngine#}
 	 * 
-	 * 
+	 * @param	{function}	distFnc	Function that receives the distance of the trial and converts it as you wish, useful to calibrate distances to only some values
 	 */
-	module.createVectorialSimilarityTimeline = function(rawTimeline, definitions){
+	module.createVectorialSimilarityTimeline = function(rawTimeline, definitions, distFnc){
 		var timeline=[];
 		rawTimeline.forEach(function(rawTrial, i, array) {
 			//first some sanity checks
@@ -148,7 +148,11 @@ function ExpLauncher(opts, canvas){
 				throw "seems you are not using the same category names used when creating the rawTrial argument";
 			}
 			var trial = {type:'similarity'};
-			var vectors = engine.generateVectorPair(definitions[rawTrial.pairLabel[0]], definitions[rawTrial.pairLabel[1]], rawTrial.distance)
+			var vectors = engine.generateVectorPair({
+				firstType: definitions[rawTrial.pairLabel[0]],
+				secondType: definitions[rawTrial.pairLabel[1]],
+				distance: (typeof distFnc == 'undefined') ? rawTrial.data.distance : distFnc(rawTrial.data.distance)
+			})
 			trial.stimuli = vectors;
 			trial.data = rawTrial.data;
 			trial.hardware_first_stim = {recipient:"native", payload:20};
@@ -340,7 +344,6 @@ function ExpLauncher(opts, canvas){
 	 * @property {Object}	components	Each entry in this object represents holds the mc pairs and the url to the microcomponent
 	 * @property {Array}	definitions	Vectorial description of the invariants as returned by {@link expLauncher#createOrthogonalDefs}
 	 * @property {Integer}	difficulty	The difficulty level that has been chosen for these stimuli.
-	 * @property {Array[]}	stimuli		Array of arrays. Inner arrays are a pair of img DOM elements, ready to be used as stimuli
 	 */
 	
 	
@@ -349,18 +352,21 @@ function ExpLauncher(opts, canvas){
 	 * images are created with the engine provided and given as dataURIs. Use them to give stimuli to your jsPsych trials.
 	 * Each call will give different images each time, so beware.
 	 * 
+	 * @param	{object}	options				parameters for the functions
+	 * @param	{Number}	options.diff		difficulty if you need it to be set
+	 * @param	{Array}		options.distances	desired distances for the stimuli pairs
 	 * @param {boolean} 	practice	If true, uses the "practice_components" instead of the "microcomponents" attribute of the setting object.
 	 * @param {function}	atEach		Function to execute each time a stim pair is created. Useful to update a progress bar.
 	 * @returns {StimuliWrapper}		
 	 */
-	module.makeStimDescription = function makeStimDescription(practice){
-		practice = practice || false;
+	module.makeStimDescription = function makeStimDescription(options){
+		practice = options.practice || false;
 	
 		var components = practice ? opts.practice_components : opts.microcomponents;
 		var attNumber = Object.keys(components).length;
 		var numberOfCat = Object.keys(opts.categories).length;
 		
-		var diff = chooseDiff(attNumber, opts.levels);
+		var diff = (typeof options.diff == 'undefined') ? chooseDiff(attNumber, opts.levels) : options.diff;
 		var defs = module.createOrthogonalDefs(numberOfCat, Object.keys(components).length, diff);
 		var definitions ={};
 		Object.keys(opts.categories).forEach(function(elt, idx){
@@ -382,23 +388,23 @@ function ExpLauncher(opts, canvas){
 	 * @param	{function}			atEach	function that will be called after each pair is drawn and saved. useful to update a progress bar.
 	 * @returns	{Array[]}					Array of img DOM element pairs.
 	 */
-	module.makeStimuli = function makeStimuli(wrapper, length, atEach, components, density){
+	module.makeStimuli = function makeStimuli(options, wrapper, length, atEach, components, density, distTweak){
 		
-		var attNumber = Object.keys(wrapper.components).length;
+		var attNumber = Object.keys(options.wrapper.components).length;
 		var distances = [3];
-		var rawTimeline = module.createRawSimilarityTimeline([Object.keys(wrapper.definitions)[0], Object.keys(wrapper.definitions)[1]], distances, length)
-		var vectorTimeline = module.createVectorialSimilarityTimeline(rawTimeline, wrapper.definitions);
+		var rawTimeline = module.createRawSimilarityTimeline([Object.keys(options.wrapper.definitions)[0], Object.keys(options.wrapper.definitions)[1]], distances, options.length)
+		var vectorTimeline = module.createVectorialSimilarityTimeline(rawTimeline, options.wrapper.definitions, options.distTweak);
 		vectorTimeline.forEach(function(elt, i, array) {
 			if(elt.data.kind ==="same"){
 				elt.data.distance = elt.data.distance;
 			}
 			else if(elt.data.kind === "different"){
-				elt.data.distance = elt.data.distance + wrapper.difficulty;
+				elt.data.distance = elt.data.distance + options.wrapper.difficulty;
 			}
 			else throw "unsupported similarity kind, neither same or different?";
 		});
 		
-		module.replaceVectorsWithImage(vectorTimeline, atEach, components, density);
+		module.replaceVectorsWithImage(vectorTimeline, options.atEach, options.components, options.density);
 		return vectorTimeline;
 	};
 	
@@ -406,23 +412,38 @@ function ExpLauncher(opts, canvas){
 	/**
 	 * Main method, creates a fully usable jsPsych timeline according to the given settings, creating stimuli on-the-fly from micro-components with my awesome {@link stimEngine} object
 	 * @method
-	 * @param	{Function}			atEach		What to do once the timeline and stimuli are fully created
-	 * @param	{ServerSetting}		settings	The raw settings object fetched from the Django server. Should contain an entry named 'timeline' that is almost like a jsPsych timeline.
-	 * @param	{Object)			opts		Some settings about how to create the metadata
-	 * @return	{Object	}						An object with two properties: 'timeline', a fully working jsPsych timeline ready to use with jsPsych.init, and 'meta', containing information about things decided/discovered client-side that you might want to save to your server
+	 * @param	{Object}			opts				Parameter object
+	 * @param	{Object}			opts.description	If set, the demanded parameters. will be chosen for you otherwise
+	 * @param	{boolean}			opts.reuseStim		true if you wish to use the same stimuli for both categorizatio and similiraty
+	 * @param	{Function}			opts.atEach			What to do once the timeline and stimuli are fully created
+	 * @param	{ServerSetting}		settings		The raw settings object fetched from the Django server. Should contain an entry named 'timeline' that is almost like a jsPsych timeline.
+	 * @param	{Object)			opts			Some settings about how to create the metadata
+	 * @return	{Object	}							An object with two properties: 'timeline', a fully working jsPsych timeline ready to use with jsPsych.init, and 'meta', containing information about things decided/discovered client-side that you might want to save to your server
 	 */
-	module.createStandardExperiment = function(settings, atEach, opts){
+	module.createStandardExperiment = function(opts){
 		
-		var stimWrap = module.makeStimDescription(false);
+		var stimWrap;
+		if(opts.description){
+			stimWrap = opts.description
+		}
+		else{
+			stimWrap = module.makeStimDescription(false);
+		}
+		
 		var practiceStimWrap = module.makeStimDescription(true);
 		var timeline =[];
-		var meta = {globalparams: {difficulty: stimWrap.difficulty, definitions: stimWrap.definitions}};
-		var stimuli = module.makeStimuli(stimWrap, settings.length, atEach);
-		var practiceStimuli = module.makeStimuli(practiceStimWrap, settings.practices, atEach, settings.practice_components, 10);
+		var meta = stimWrap;
+		var stimuli = module.makeStimuli({
+			wrapper: stimWrap,
+			length: opts.settings.length,
+			atEach: opts.atEach,
+			distTweak: opts.distTweak
+		});
+		var practiceStimuli = module.makeStimuli(practiceStimWrap, opts.settings.practices, opts.atEach, opts.settings.practice_components, 10);
 		
 		// ok so now we should have all we need to create stuff, lets iterate through the given timeline
-		for(var step=0; step<settings.timeline.length; step++){
-			var block = settings.timeline[step];
+		for(var step=0; step< opts.settings.timeline.length; step++){
+			var block = opts.settings.timeline[step];
 			block.return_stim = false;
 			//Let's start with an easy case: a reprise of a previous block
 			if(block.reprise != undefined){
@@ -445,18 +466,18 @@ function ExpLauncher(opts, canvas){
 			else if(block.type == 'categorize'){
 				//I moved the key codes to the main object because i needed the names of the categories there to build them, pull them back here
 				var choices = [];
-				for(var key in settings.categories){
-					if(settings.categories.hasOwnProperty(key)){
-						choices.push(settings.categories[key]);
+				for(var key in opts.settings.categories){
+					if(opts.settings.categories.hasOwnProperty(key)){
+						choices.push(opts.settings.categories[key]);
 					}
 				}
 				block.choices = choices;
 				if(block.is_practice){
-					block.timeline = module.getCategorizationTimelineFromSim(practiceStimuli, settings.categories, settings.practices);
+					block.timeline = module.getCategorizationTimelineFromSim(practiceStimuli, opts.settings.categories, opts.settings.practices);
 				}
 				else{
-					block.timeline = module.getCategorizationTimelineFromSim(stimuli, settings.categories, block.length);
-					insertPauses(block.timeline, settings.number_of_pauses, 'questionnaire.html', collectQuestionnaire);
+					block.timeline = module.getCategorizationTimelineFromSim(stimuli, opts.settings.categories, block.length);
+					insertPauses(block.timeline, opts.settings.number_of_pauses, 'questionnaire.html', collectQuestionnaire);
 				}
 			}
 			timeline.push(block);
@@ -473,11 +494,11 @@ function ExpLauncher(opts, canvas){
 		
 		
 		//We should end by adding some stuff to the meta object here
-		meta.subject = settings.subject;
-		meta.previous = settings.previous;
+		meta.subject = opts.settings.subject;
+		meta.previous = opts.settings.previous;
 		meta.complete = true;
-		meta.exp_id = settings.exp_id;
-		meta.current_exp = settings.current_exp;
+		meta.exp_id = opts.settings.exp_id;
+		meta.current_exp = opts.settings.current_exp;
 		return {meta: meta, timeline: timeline};
 		
 		

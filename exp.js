@@ -36,8 +36,27 @@ $(function () {
 
 });
 
+var firstTime;
+
+function runExperiment() {
+	//we need the progress bar and the canvas
+	var $progressbar = $("<div></div>", {id:'progressBar'});
+	var $stimCanvas = $("<canvas></canvas>", {id: 'stimCanvas', height: 300, width: 300});
+	var $feedback = $("<div></div>", {id: 'retroaction'});
+	$("#content").prepend($feedback);
+	$("#jsPsychTarget").append($progressbar).append($stimCanvas);
+	
+	
+	//1) determiner si nous sommes en train de continuer une participation ou si cest la 1ere fois pour ce sujet
+	firstTime = serverPsych.count() < 1;
+	
+	
+    serverPsych.request(run, 'final');
+}
+
+
 function run(settings){
-	settings.timeline = serverPsych.unpack(settings.timeline, function(t){return t;});
+	//settings.timeline = serverPsych.unpack(settings.timeline, function(t){return t;});
 	var launcher = ExpLauncher(settings, document.getElementById("stimCanvas")); //initialize a launcher and drawer 
 	var $bar = $("#progressBar");
 	var $progressLabel = $("<div></div>");
@@ -49,7 +68,17 @@ function run(settings){
 	});
 
 	launcher.loadMicroComponents(settings, function(){
+		
 		var exp = launcher.createStandardExperiment(settings, null, {reuseStim: true, saveDescription: true});
+		//verifier sil faut créer les définitions from scratch ou utiliser les anciennes qui nous sont données dans les settings
+		if(firstTime){
+			exp
+		}
+		else{
+			
+		}
+		
+		
 		exp.meta.startTime = new Date().toISOString();
 		$bar.progressbar("destroy");
 		
@@ -77,15 +106,7 @@ function run(settings){
 	})
 }
 
-function runExperiment() {
-	//we need the progress bar and the canvas
-	var $progressbar = $("<div></div>", {id:'progressBar'});
-	var $stimCanvas = $("<canvas></canvas>", {id: 'stimCanvas', height: 300, width: 300});
-	var $feedback = $("<div></div>", {id: 'retroaction'});
-	$("#content").prepend($feedback);
-	$("#jsPsychTarget").append($progressbar).append($stimCanvas);
-    serverPsych.request(run, 'final');
-}
+
 
 function showWinnings(trial_data){
 	

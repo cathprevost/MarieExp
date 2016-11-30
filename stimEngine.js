@@ -92,10 +92,10 @@ function StimEngine(opts, canvas){
 	 * @method
 	 * @param	{Integer}	distance	How many attributes to ensure are of different value between the two types IN ADDITION to whatever distance already is between the two other defs. If you want the real final distance, you will have to calculate it yourself.
 	 */
-	module.generateVectorPair = function generateVectorPair(firstType, secondType, distance){
+	module.generateVectorPair = function generateVectorPair(opts){
 		//every feature position that is not fixed in EITHER definition is a degree of liberty we can use to meet the distance requirement
-		var firstType = jQuery.extend({}, firstType);
-		var secondType = jQuery.extend({}, secondType);
+		var firstType = jQuery.extend({}, opts.defs.firstType);
+		var secondType = jQuery.extend({}, opts.defs.secondType);
 		var inCommon =[];
 		var alone = findSingle(firstType, secondType);
 		//iterate through all the entries, sort those that are present in both
@@ -136,9 +136,9 @@ function StimEngine(opts, canvas){
 				if(other == 'free'){
 					against[elt] = Math.floor(Math.random() * 2);
 				}
-				if(distance > 0){
+				if(opts.distance > 0){
 					settable[elt] = against[elt] == 0 ? 1 : 0;
-					distance--;
+					opts.distance--;
 				}
 				else{
 					settable[elt] = against[elt];
@@ -146,7 +146,7 @@ function StimEngine(opts, canvas){
 			}
 		});
 		
-		if(distance > 0){
+		if(opts.distance > 0){
 			throw "not enough settable attributes to achieve demanded vectorial distance";
 		}
 		fillUp(firstType);
