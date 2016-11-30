@@ -115,13 +115,18 @@ function ExpLauncher(opts, canvas){
 	 * Each object is meant to represent a similarity judgment trial. A trials comprises two stimuli, each of a particular category among 'names' plus a vectorial distance among 'distances'
 	 * this function will return an array of 'length' trials, with each subtype roughly uniformly represented (each trial object will be multiplied to exceed 'length', then the whole array will be truncated to match 'length' but after randomization)
 	 * 
+	 * @param	{Object}	options				Parameters for this function stuffed into a neat object :)
+	 * @param	{Array}		options.names		An array of all category names you wish to use for the experiment
+	 * @param	{Array}		options.distances	An array of all allowed distances between pairs
+	 * @param	{Function}	options.distTweak	A function that will each generated trial and be able to modify it dynamically as you need.
+	 * @param	{Number}	options.length		The number of trial (and pairs)	you wish to create for your similarity block
 	 * 
 	 */
-	module.createRawSimilarityTimeline = function(names, distances, length){	
-		var pairs = getAllPairs(names);
-		var typesOfTrials = pairs.length * distances.length;
-		var multiplier = Math.floor(length/typesOfTrials) + 1;
-		var rawTimeline = jsPsych.randomization.factorial({'pairLabel': pairs, 'distance': distances}, multiplier, false);
+	module.createRawSimilarityTimeline = function(options){	
+		var pairs = getAllPairs(options.names);
+		var typesOfTrials = pairs.length * options.distances.length;
+		var multiplier = Math.floor(options.length/typesOfTrials) + 1;
+		var rawTimeline = jsPsych.randomization.factorial({'pairLabel': pairs, 'distance': options.distances}, multiplier, false);
 		
 		rawTimeline.forEach(function(elt, i, array) {
 			var extraData = {};
@@ -131,7 +136,7 @@ function ExpLauncher(opts, canvas){
 			extraData.distance = elt.distance;
 			elt.data = extraData;
 		});
-		return rawTimeline.slice(0, length);
+		return rawTimeline.slice(0, options.length);
 	}
 	
 	/**
@@ -354,15 +359,13 @@ function ExpLauncher(opts, canvas){
 	 * 
 	 * @param	{object}	options				parameters for the functions
 	 * @param	{Number}	options.diff		difficulty if you need it to be set
-	 * @param	{Array}		options.distances	desired distances for the stimuli pairs
-	 * @param {boolean} 	practice	If true, uses the "practice_components" instead of the "microcomponents" attribute of the setting object.
-	 * @param {function}	atEach		Function to execute each time a stim pair is created. Useful to update a progress bar.
+	 * @param 	{boolean} 	options.practice	If true, uses the "practice_components" instead of the "microcomponents" attribute of the setting object.
 	 * @returns {StimuliWrapper}		
 	 */
 	module.makeStimDescription = function makeStimDescription(options){
 		practice = options.practice || false;
 	
-		var components = practice ? opts.practice_components : opts.microcomponents;
+		var components = options.practice ? opts.practice_components : opts.microcomponents;
 		var attNumber = Object.keys(components).length;
 		var numberOfCat = Object.keys(opts.categories).length;
 		
@@ -383,16 +386,26 @@ function ExpLauncher(opts, canvas){
 	
 	/**
 	 * Final step before creating an actual array of images.
-	 * @param	{StimuliWrapper}	wrapper	Description of the chosen MCs and the invariants.
-	 * @param	{Integer}			length	How many stimuli pairs you wish to create.
-	 * @param	{function}			atEach	function that will be called after each pair is drawn and saved. useful to update a progress bar.
-	 * @returns	{Array[]}					Array of img DOM element pairs.
+	 * @param	{Object}			options				the main options object
+	 * @param	{Number}			options.length		how many pairs you wish to create.		
+	 * @param	{StimuliWrapper}	options.wrapper		Description of the chosen MCs and the invariants.
+	 * @param	{Number}			options.density		The stimuli density.
+	 * @param	{Function}			options.distTweak	A function to dynamically change the generated distance in the pairs, receives the trial as single param
+	 * @param	{function}			options.atEach		function that will be called after each pair is drawn and saved. useful to update a progress bar.
+	 * @returns	{Array[]}								Array of img DOM element pairs.
 	 */
-	module.makeStimuli = function makeStimuli(options, wrapper, length, atEach, components, density, distTweak){
+	module.makeStimuli = function makeStimuli(options){
 		
 		var attNumber = Object.keys(options.wrapper.components).length;
-		var distances = [3];
-		var rawTimeline = module.createRawSimilarityTimeline([Object.keys(options.wrapper.definitions)[0], Object.keys(options.wrapper.definitions)[1]], distances, options.length)
+		var distances = (typeof options.distances == 'undefined') ? getDistancesArray(options.wrapper.difficulty, attNumber) : options.distances;
+		
+		var rawTimeline = module.createRawSimilarityTimeline({
+			distTweak: options.distTweak,
+			names:[Object.keys(options.wrapper.definitions)[0], Object.keys(options.wrapper.definitions)[1]],
+			distances : distances,
+			length : options.length
+		})
+		
 		var vectorTimeline = module.createVectorialSimilarityTimeline(rawTimeline, options.wrapper.definitions, options.distTweak);
 		vectorTimeline.forEach(function(elt, i, array) {
 			if(elt.data.kind ==="same"){
@@ -412,38 +425,50 @@ function ExpLauncher(opts, canvas){
 	/**
 	 * Main method, creates a fully usable jsPsych timeline according to the given settings, creating stimuli on-the-fly from micro-components with my awesome {@link stimEngine} object
 	 * @method
-	 * @param	{Object}			opts				Parameter object
-	 * @param	{Object}			opts.description	If set, the demanded parameters. will be chosen for you otherwise
-	 * @param	{boolean}			opts.reuseStim		true if you wish to use the same stimuli for both categorizatio and similiraty
-	 * @param	{Function}			opts.atEach			What to do once the timeline and stimuli are fully created
-	 * @param	{ServerSetting}		settings		The raw settings object fetched from the Django server. Should contain an entry named 'timeline' that is almost like a jsPsych timeline.
-	 * @param	{Object)			opts			Some settings about how to create the metadata
+	 * @param	{Object}			options				Parameter object
+	 * @param	{Object}			options.description	If set, the demanded parameters. will be chosen for you otherwise
+	 * @param	{boolean}			options.reuseStim		true if you wish to use the same stimuli for both categorizatio and similiraty
+	 * @param	{Function}			options.atEach			What to do once the timeline and stimuli are fully created
+	 * @param	{ServerSetting}		options.settings		The raw settings object fetched from the Django server. Should contain an entry named 'timeline' that is almost like a jsPsych timeline.
+	 * @param	{Function}			options.distTweak		A function that allows arbitrary modifications to each generated similarity trial just before stimuli are generated. receives the trial as single parameter. Use to set distances to arbiratry conditions.
 	 * @return	{Object	}							An object with two properties: 'timeline', a fully working jsPsych timeline ready to use with jsPsych.init, and 'meta', containing information about things decided/discovered client-side that you might want to save to your server
 	 */
-	module.createStandardExperiment = function(opts){
+	module.createStandardExperiment = function(options){
 		
 		var stimWrap;
-		if(opts.description){
-			stimWrap = opts.description
+		//check if a description was already provided, if so skip description generation and use the one provided
+		if(options.description){
+			stimWrap = options.description
 		}
 		else{
-			stimWrap = module.makeStimDescription(false);
+			stimWrap = module.makeStimDescription({
+				practice: false
+			});
 		}
 		
-		var practiceStimWrap = module.makeStimDescription(true);
+		var practiceStimWrap = module.makeStimDescription({practice:true});
 		var timeline =[];
-		var meta = stimWrap;
+		
+		var meta = {};
+		
 		var stimuli = module.makeStimuli({
 			wrapper: stimWrap,
-			length: opts.settings.length,
-			atEach: opts.atEach,
-			distTweak: opts.distTweak
+			length: options.settings.length,
+			atEach: options.atEach,
+			distTweak: options.distTweak
 		});
-		var practiceStimuli = module.makeStimuli(practiceStimWrap, opts.settings.practices, opts.atEach, opts.settings.practice_components, 10);
+		
+		var practiceStimuli = module.makeStimuli({
+			wrapper: practiceStimWrap,
+			length: options.settings.practices,
+			atEach: options.atEach,
+			components : options.settings.practice_components,
+			density: 10
+		});
 		
 		// ok so now we should have all we need to create stuff, lets iterate through the given timeline
-		for(var step=0; step< opts.settings.timeline.length; step++){
-			var block = opts.settings.timeline[step];
+		for(var step=0; step< options.settings.timeline.length; step++){
+			var block = options.settings.timeline[step];
 			block.return_stim = false;
 			//Let's start with an easy case: a reprise of a previous block
 			if(block.reprise != undefined){
@@ -466,18 +491,18 @@ function ExpLauncher(opts, canvas){
 			else if(block.type == 'categorize'){
 				//I moved the key codes to the main object because i needed the names of the categories there to build them, pull them back here
 				var choices = [];
-				for(var key in opts.settings.categories){
-					if(opts.settings.categories.hasOwnProperty(key)){
-						choices.push(opts.settings.categories[key]);
+				for(var key in options.settings.categories){
+					if(options.settings.categories.hasOwnProperty(key)){
+						choices.push(options.settings.categories[key]);
 					}
 				}
 				block.choices = choices;
 				if(block.is_practice){
-					block.timeline = module.getCategorizationTimelineFromSim(practiceStimuli, opts.settings.categories, opts.settings.practices);
+					block.timeline = module.getCategorizationTimelineFromSim(practiceStimuli, options.settings.categories, options.settings.practices);
 				}
 				else{
-					block.timeline = module.getCategorizationTimelineFromSim(stimuli, opts.settings.categories, block.length);
-					insertPauses(block.timeline, opts.settings.number_of_pauses, 'questionnaire.html', collectQuestionnaire);
+					block.timeline = module.getCategorizationTimelineFromSim(stimuli, options.settings.categories, block.length);
+					insertPauses(block.timeline, options.settings.number_of_pauses, 'questionnaire.html', collectQuestionnaire);
 				}
 			}
 			timeline.push(block);
@@ -494,11 +519,12 @@ function ExpLauncher(opts, canvas){
 		
 		
 		//We should end by adding some stuff to the meta object here
-		meta.subject = opts.settings.subject;
-		meta.previous = opts.settings.previous;
+		meta.subject = options.settings.subject;
+		//meta.previous = options.settings.previous;
 		meta.complete = true;
-		meta.exp_id = opts.settings.exp_id;
-		meta.current_exp = opts.settings.current_exp;
+		meta.exp_id = options.settings.exp_id;
+		meta.current_exp = options.settings.current_exp;
+		meta.toSave = stimWrap;
 		return {meta: meta, timeline: timeline};
 		
 		

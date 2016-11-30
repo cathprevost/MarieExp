@@ -69,7 +69,15 @@ function run(settings){
 
 	launcher.loadMicroComponents(settings, function(){
 		
-		var exp = launcher.createStandardExperiment(settings, null, {reuseStim: true, saveDescription: true});
+		//we can now give the launcher a small function that takes a trial and can modify its properties (like distance) just before we use it to create stimuli
+		
+		
+		
+		var exp = launcher.createStandardExperiment({
+			settings: settings,
+			
+		},
+				settings, null, {reuseStim: true, saveDescription: true});
 		//verifier sil faut créer les définitions from scratch ou utiliser les anciennes qui nous sont données dans les settings
 		if(firstTime){
 			exp
@@ -95,7 +103,7 @@ function run(settings){
 				//jsPsych.data.displayData("json");
 				serverPsych.save({
 					data:data,
-					toSave:exp,
+					toSave:exp.meta.toSave,
 					complete:complete
 				});
 			},
