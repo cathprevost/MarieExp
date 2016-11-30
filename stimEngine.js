@@ -94,8 +94,8 @@ function StimEngine(opts, canvas){
 	 */
 	module.generateVectorPair = function generateVectorPair(opts){
 		//every feature position that is not fixed in EITHER definition is a degree of liberty we can use to meet the distance requirement
-		var firstType = jQuery.extend({}, opts.defs.firstType);
-		var secondType = jQuery.extend({}, opts.defs.secondType);
+		var firstType = jQuery.extend({}, opts.firstType);
+		var secondType = jQuery.extend({}, opts.secondType);
 		var inCommon =[];
 		var alone = findSingle(firstType, secondType);
 		//iterate through all the entries, sort those that are present in both

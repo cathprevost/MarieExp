@@ -432,6 +432,7 @@ function ExpLauncher(opts, canvas){
 	 * @param	{Object}			options				Parameter object
 	 * @param	{Object}			options.description	If set, the demanded parameters. will be chosen for you otherwise
 	 * @param	{Function}			options.atEach			What to do once the timeline and stimuli are fully created
+	 * @param	{Number}			options.difficulty		Optional, the difficulty at which to run the experiment. will be chosen for you if not set.
 	 * @param	{ServerSetting}		options.settings		The raw settings object fetched from the Django server. Should contain an entry named 'timeline' that is almost like a jsPsych timeline.
 	 * @param	{Function}			options.distTweak		A function that allows arbitrary modifications to each generated similarity trial just before stimuli are generated. receives the trial as single parameter. Use to set distances to arbiratry conditions.
 	 * @return	{Object	}							An object with two properties: 'timeline', a fully working jsPsych timeline ready to use with jsPsych.init, and 'meta', containing information about things decided/discovered client-side that you might want to save to your server
@@ -445,10 +446,11 @@ function ExpLauncher(opts, canvas){
 		}
 		else{
 			stimWrap = module.makeStimDescription({
-				practice: false
+				practice: false,
+				diff: options.difficulty //force a particular difficulty if it was set
 			});
 		}
-		
+
 		var practiceStimWrap = module.makeStimDescription({practice:true});
 		var timeline =[];
 		
