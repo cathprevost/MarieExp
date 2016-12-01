@@ -86,7 +86,7 @@ function run(settings){
 			description : firstTime ? false : settings.oldParams //if not the first time, fetch the definitions from the oldParams!
 		});
 		
-		$progressLabel.destroy();
+		$progressLabel.remove();
 		exp.meta.startTime = new Date().toISOString();
 		$bar.progressbar("destroy");
 		
