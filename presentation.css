@@ -1,10 +1,13 @@
-.jspsych-genstim{
+html .jspsych-genstim{
+	height : 270px;
+	width : 270px;	
+}
+html #jspsych-sim-stim{
 	height : 270px;
 	width : 270px;
-	
 }
 
-.jspsych-categorize-stimulus{
+.jspsych-categorize-stimulus, #jspsych-categorize-stimulus{
 	height : 270px;
 	width : 270px;
 	
