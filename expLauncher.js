@@ -333,8 +333,10 @@ function ExpLauncher(opts, canvas){
 	
 	
 	function chooseDiff(attNumber, levels){
-		//TODO: remove this temporary change
-		return 2;
+		
+		if(typeof opts.difficulty === "number"){
+			return opts.difficulty;
+		}
 		
 		
 		if(levels > attNumber){
