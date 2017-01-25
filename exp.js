@@ -83,7 +83,8 @@ function run(settings){
 		var exp = launcher.createStandardExperiment({
 			settings: settings,
 			distTweak : distTweak,
-			description : firstTime ? false : settings.oldParams //if not the first time, fetch the definitions from the oldParams!
+			description : firstTime ? false : settings.oldParams, //if not the first time, fetch the definitions from the oldParams!
+			distances: [0,3]
 		});
 		
 		$progressLabel.remove();

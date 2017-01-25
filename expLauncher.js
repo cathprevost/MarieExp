@@ -462,7 +462,8 @@ function ExpLauncher(opts, canvas){
 			wrapper: stimWrap,
 			length: options.settings.length,
 			atEach: options.atEach,
-			distTweak: options.distTweak
+			distTweak: options.distTweak,
+			distances: options.distances
 		});
 		
 		var practiceStimuli = module.makeStimuli({
@@ -470,7 +471,8 @@ function ExpLauncher(opts, canvas){
 			length: options.settings.practices,
 			atEach: options.atEach,
 			components : options.settings.practice_components,
-			density: 10
+			density: 10,
+			distances: options.distances
 		});
 		
 		// ok so now we should have all we need to create stuff, lets iterate through the given timeline
