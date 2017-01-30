@@ -382,6 +382,7 @@ function ExpLauncher(opts, canvas){
 			definitions[elt] = defs[idx];
 		});
 		
+		
 		return {
 			components: components,
 			definitions: definitions,
@@ -534,6 +535,19 @@ function ExpLauncher(opts, canvas){
 		meta.exp_id = options.settings.exp_id;
 		meta.current_exp = options.settings.current_exp;
 		meta.toSave = stimWrap;
+		
+		//Components were set to images, return them back to urls.
+		if(! typeof stimWrap.components[0][0] === "string"){
+			Object.keys(stimWrap.components).map(function(key, index){
+				stimWrap.components[key] = {
+						0:stimWrap.components[key][0].src.replace(/https?:\/\/[^\/]+/i, ""),
+						1:stimWrap.components[key][1].src.replace(/https?:\/\/[^\/]+/i, "")
+				}
+			});
+		}
+		
+		
+		
 		return {meta: meta, timeline: timeline};
 	}
 	

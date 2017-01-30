@@ -66,6 +66,12 @@ function run(settings){
 	$bar.progressbar({
 		value :false
 	});
+	
+	
+	//If this is not the first time, we should use the micromponents from last time. replace them before loading!
+	if(firstTime && settings.oldParams && settings.oldParams.components && settings.oldParams.components[0][0]){
+		settings.microcomponents = settings.oldParams.components
+	}
 
 	launcher.loadMicroComponents(settings, function(){
 		
