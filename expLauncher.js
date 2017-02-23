@@ -111,6 +111,69 @@ function ExpLauncher(opts, canvas){
 	}
 	
 	/**
+	 * Creates a basic array of jspsych-abx trials without stimuli
+	 */
+	module.getABXtimeline = function(options, callback){
+		
+		var attNumber = Object.keys(options.wrapper.components).length;
+		var distances = (typeof options.distances == 'undefined') ? getDistancesArray(options.wrapper.difficulty, attNumber) : options.distances;
+		
+		
+		var timeline = [];
+		var types = 8 * distances.length;
+		var multiplier = Math.floor(options.length/types) + 1;
+		
+		
+		var rawTimeline = jsPsych.randomization.factorial({
+			firstStim: Object.keys(options.wrapper.definitions),
+			secondStim: Object.keys(options.wrapper.definitions),
+			x: [0, 1],
+			dist: distances
+		}, multiplier);
+		
+		rawTimeline.forEach(function(elem){
+			var trial = {};
+			var vectors = engine.generateVectorPair({
+				firstType: options.wrapper.definitions[elem.firstStim],
+				secondType: options.wrapper.definitions[elem.secondStim],
+				distance: elem.dist
+			});
+			trial.stimuli = vectors;
+			trial.data = {
+				distance: elem.dist + elem.firstStim === elem.secondStim ? 0 : options.wrapper.difficulty,
+				kind: elem.firstStim === elem.secondStim ? "same" : "different",
+				ans: elem.x
+			};
+			
+			timeline.push(trial);
+		});
+		
+		var count = 0;
+		function draw(){
+			var trial = timeline[count];
+			trial.stimuli[0] = engine.singleDraw(trial.stimuli[0], options.components, options.density);
+			trial.stimuli[1] = engine.singleDraw(trial.stimuli[1], options.components, options.density);
+			trial.stimuli[2] = trial.stimuli[trial.data.ans];
+			if(options.atEach){
+				options.atEach();
+			}
+			count++;
+			if(count < timeline.length){
+				requestAnimationFrame(function(){
+					draw();
+				});
+			}
+			else{
+				callback(timeline);
+			}
+		}
+		
+		draw();
+		
+	}
+	
+	
+	/**
 	 * Returns a list of objects containing the all the possible trials made by combining two images among the category names in 'names' and each available distance
 	 * Each object is meant to represent a similarity judgment trial. A trials comprises two stimuli, each of a particular category among 'names' plus a vectorial distance among 'distances'
 	 * this function will return an array of 'length' trials, with each subtype roughly uniformly represented (each trial object will be multiplied to exceed 'length', then the whole array will be truncated to match 'length' but after randomization)
@@ -179,13 +242,17 @@ function ExpLauncher(opts, canvas){
 	 * @param	{Object[]}	vectorTimeline	An array of objects like that returned by {@link ExpLauncher#createVectorialTimeline}. must have a 'stimuli' property containing a vectorial def or an array of vectorial defs
 	 * @param	{Function}	callback		a function to be called after every call to the engine rendering function. provided with two positional arguments: the index of the trial being currently processed, and the total number of trials to be processed.	
 	 */
-	module.replaceVectorsWithImage = function(vectorTimeline, promise, components, density){
+	module.replaceVectorsWithImage = function(vectorTimeline, atEach, components, density, callback){
 		if(components){
 			engine.setComponents(components);
 		}
 		// I think this is where we should batch up our canvas draws so that it is non blocking
 		
-		vectorTimeline.forEach(function(raw, i, array) {
+		
+		count = 0;
+		function draw(){
+			
+			var raw = vectorTimeline[count];
 			var multiple = raw.stimuli.length == undefined ? false : true;
 			if(!multiple){
 				raw.stimulus = engine.singleDraw(raw.stimulus);
@@ -195,8 +262,21 @@ function ExpLauncher(opts, canvas){
 				raw.stimuli[0] = engine.singleDraw(raw.stimuli[0], components, density);
 				raw.stimuli[1] = engine.singleDraw(raw.stimuli[1], components, density);
 			}
-			if(promise) promise.notify();
-		});
+			
+			atEach();
+			
+			count++;
+			if(count < vectorTimeline.length){
+				requestAnimationFrame(function(){
+					draw();
+				})
+			}
+			else{
+				callback(vectorTimeline);
+			}
+		}
+	
+		draw()
 	};
 	
 	/**
@@ -401,7 +481,7 @@ function ExpLauncher(opts, canvas){
 	 * @param	{function}			options.atEach		function that will be called after each pair is drawn and saved. useful to update a progress bar.
 	 * @returns	{Array[]}								Array of img DOM element pairs.
 	 */
-	module.makeStimuli = function makeStimuli(options){
+	module.makeStimuli = function makeStimuli(options, callback){
 		
 		var attNumber = Object.keys(options.wrapper.components).length;
 		var distances = (typeof options.distances == 'undefined') ? getDistancesArray(options.wrapper.difficulty, attNumber) : options.distances;
@@ -411,7 +491,7 @@ function ExpLauncher(opts, canvas){
 			names:[Object.keys(options.wrapper.definitions)[0], Object.keys(options.wrapper.definitions)[1]],
 			distances : distances,
 			length : options.length
-		})
+		});
 		
 		var vectorTimeline = module.createVectorialSimilarityTimeline(rawTimeline, options.wrapper.definitions, options.distTweak);
 		vectorTimeline.forEach(function(elt, i, array) {
@@ -424,8 +504,7 @@ function ExpLauncher(opts, canvas){
 			else throw "unsupported similarity kind, neither same or different?";
 		});
 		
-		module.replaceVectorsWithImage(vectorTimeline, options.atEach, options.components, options.density);
-		return vectorTimeline;
+		module.replaceVectorsWithImage(vectorTimeline, options.atEach, options.components, options.density, callback);
 	};
 	
 	
@@ -440,7 +519,7 @@ function ExpLauncher(opts, canvas){
 	 * @param	{Function}			options.distTweak		A function that allows arbitrary modifications to each generated similarity trial just before stimuli are generated. receives the trial as single parameter. Use to set distances to arbiratry conditions.
 	 * @return	{Object	}							An object with two properties: 'timeline', a fully working jsPsych timeline ready to use with jsPsych.init, and 'meta', containing information about things decided/discovered client-side that you might want to save to your server
 	 */
-	module.createStandardExperiment = function(options){
+	module.createStandardExperiment = function(options, callback){
 		
 		var stimWrap;
 		//check if a description was already provided, if so skip description generation and use the one provided
@@ -458,97 +537,134 @@ function ExpLauncher(opts, canvas){
 		var timeline =[];
 		
 		var meta = {};
+		var stimuli;
+		var practiceStimuli;
 		
-		var stimuli = module.makeStimuli({
-			wrapper: stimWrap,
-			length: options.settings.length,
-			atEach: options.atEach,
-			distTweak: options.distTweak,
-			distances: options.distances
-		});
-		
-		var practiceStimuli = module.makeStimuli({
-			wrapper: practiceStimWrap,
-			length: options.settings.practices,
-			atEach: options.atEach,
-			components : options.settings.practice_components,
-			density: 10,
-			distances: options.distances
-		});
-		
-		// ok so now we should have all we need to create stuff, lets iterate through the given timeline
-		for(var step=0; step< options.settings.timeline.length; step++){
-			var block = options.settings.timeline[step];
-			block.return_stim = false;
-			//Let's start with an easy case: a reprise of a previous block
-			if(block.reprise != undefined){
-				timeline.push(timeline[block.reprise]);
-			}
-			else if(block.type === 'html'){
-				var tablestring = createSampleTable(5, 5, stimuli)[0].outerHTML;
-				var block = {
-					type: 'single-stim',
-					is_html: true,
-					stimulus: tablestring,
-					prompt: block.message
-				};
-			}
-			else if(block.type == 'similarity'){
-				//TODO handle cases where block could be a trial to use as is, or an actual bloc where we have to simply repeat or generate
-				//for now let's assume all ServerBlocks will ask us to generate a series of trials that are not all identical
-				block.timeline = block.is_practice ? practiceStimuli : stimuli;
-			}
-			else if(block.type == 'categorize'){
-				//I moved the key codes to the main object because i needed the names of the categories there to build them, pull them back here
-				var choices = [];
-				for(var key in options.settings.categories){
-					if(options.settings.categories.hasOwnProperty(key)){
-						choices.push(options.settings.categories[key]);
-					}
-				}
-				block.choices = choices;
-				if(block.is_practice){
-					block.timeline = module.getCategorizationTimelineFromSim(practiceStimuli, options.settings.categories, options.settings.practices);
-				}
-				else{
-					block.timeline = module.getCategorizationTimelineFromSim(stimuli, options.settings.categories, block.length);
-					insertPauses(block.timeline, options.settings.number_of_pauses, 'questionnaire.html', collectQuestionnaire);
-				}
-			}
-			timeline.push(block);
-		}
-		
-		//TODO: make this less cringe-worthy
-		//Add the stimuli sample page by hand here, make it pretty later
-		var sampleBlock = {
-				type: 'text',
-				text: "<p> Here is an example of the textures you will use</p>"+createSampleTable(3, 3, stimuli)[0].outerHTML
-		};
-		
-		timeline.splice(1, 0, sampleBlock);
-		
-		
-		//We should end by adding some stuff to the meta object here
-		meta.subject = options.settings.subject;
-		//meta.previous = options.settings.previous;
-		meta.complete = true;
-		meta.exp_id = options.settings.exp_id;
-		meta.current_exp = options.settings.current_exp;
-		meta.toSave = stimWrap;
-		
-		//Components were set to images, return them back to urls.
-		if(! typeof stimWrap.components[0][0] === "string"){
-			Object.keys(stimWrap.components).map(function(key, index){
-				stimWrap.components[key] = {
-						0:stimWrap.components[key][0].src.replace(/https?:\/\/[^\/]+/i, ""),
-						1:stimWrap.components[key][1].src.replace(/https?:\/\/[^\/]+/i, "")
-				}
+		if(options.settings.name == "final"){
+			module.makeStimuli({
+				wrapper: stimWrap,
+				length: options.settings.length,
+				atEach: options.atEach,
+				distTweak: options.distTweak,
+				distances: options.distances
+			}, function(timeline){
+				stimuli = timeline;
+				practiceStimuli = module.makeStimuli({
+					wrapper: practiceStimWrap,
+					length: options.settings.practices,
+					atEach: options.atEach,
+					components : options.settings.practice_components,
+					density: 10,
+					distances: options.distances
+				}, function(timeline){
+					practiceStimuli = timeline;
+					theRest();
+				});
 			});
 		}
 		
+		else if(options.settings.name == "ABX"){
+			stimuli = module.getABXtimeline({
+				wrapper: stimWrap,
+				length: options.settings.length,
+				atEach: options.atEach,
+				distTweak: options.distTweak,
+				distances: options.distances,
+				density: options.settings.density
+			}, function(timeline){
+				stimuli = timeline;
+				practiceStimuli = module.getABXtimeline({
+					wrapper: practiceStimWrap,
+					length: options.settings.practices,
+					atEach: options.atEach,
+					components : options.settings.practice_components,
+					density: 10,
+					distances: options.distances
+				}, function(timeline){
+					practiceStimuli = timeline;
+					theRest();
+				});
+			})
+			
+			
+		}
 		
-		
-		return {meta: meta, timeline: timeline};
+		function theRest(){
+			
+			// ok so now we should have all we need to create stuff, lets iterate through the given timeline
+			for(var step=0; step< options.settings.timeline.length; step++){
+				var block = options.settings.timeline[step];
+				block.return_stim = false;
+				//Let's start with an easy case: a reprise of a previous block
+				if(block.reprise != undefined){
+					timeline.push(timeline[block.reprise]);
+				}
+				else if(block.type === 'html'){
+					var tablestring = createSampleTable(5, 5, stimuli)[0].outerHTML;
+					var block = {
+						type: 'single-stim',
+						is_html: true,
+						stimulus: tablestring,
+						prompt: block.message
+					};
+				}
+				else if(block.type == 'similarity' || block.type == 'abx'){
+					//TODO handle cases where block could be a trial to use as is, or an actual bloc where we have to simply repeat or generate
+					//for now let's assume all ServerBlocks will ask us to generate a series of trials that are not all identical
+					block.timeline = block.is_practice ? practiceStimuli : stimuli;
+				}
+				else if(block.type == 'categorize'){
+					//I moved the key codes to the main object because i needed the names of the categories there to build them, pull them back here
+					var choices = [];
+					for(var key in options.settings.categories){
+						if(options.settings.categories.hasOwnProperty(key)){
+							choices.push(options.settings.categories[key]);
+						}
+					}
+					block.choices = choices;
+					if(block.is_practice){
+						block.timeline = module.getCategorizationTimelineFromSim(practiceStimuli, options.settings.categories, options.settings.practices);
+					}
+					else{
+						block.timeline = module.getCategorizationTimelineFromSim(stimuli, options.settings.categories, block.length);
+						insertPauses(block.timeline, options.settings.number_of_pauses, 'questionnaire.html', collectQuestionnaire);
+					}
+				}
+				timeline.push(block);
+			}
+			
+			//TODO: make this less cringe-worthy
+			//Add the stimuli sample page by hand here, make it pretty later
+			var sampleBlock = {
+					type: 'text',
+					text: "<p> Here is an example of the textures you will use</p>"+createSampleTable(3, 3, stimuli)[0].outerHTML
+			};
+			
+			timeline.splice(1, 0, sampleBlock);
+			
+			
+			//We should end by adding some stuff to the meta object here
+			meta.subject = options.settings.subject;
+			//meta.previous = options.settings.previous;
+			meta.complete = true;
+			meta.exp_id = options.settings.exp_id;
+			meta.current_exp = options.settings.current_exp;
+			meta.toSave = stimWrap;
+			
+			//Components were set to images, return them back to urls.
+			if(! typeof stimWrap.components[0][0] === "string"){
+				Object.keys(stimWrap.components).map(function(key, index){
+					stimWrap.components[key] = {
+							0:stimWrap.components[key][0].src.replace(/https?:\/\/[^\/]+/i, ""),
+							1:stimWrap.components[key][1].src.replace(/https?:\/\/[^\/]+/i, "")
+					}
+				});
+			}
+			
+			
+			
+			callback({meta: meta, timeline: timeline});
+		}
 	}
 	
 	function collectQuestionnaire(jsPsychTarget, inputDict){
