@@ -121,7 +121,7 @@ function run(settings){
 			// jsPsych.data.addProperties({dummy: 'lol'}) yay my code works for arbitrary extra data!
 			
 			jsPsych.init({
-				display_element: $("#jsPsychTarget"),
+				display_element: "jsPsychTarget",
 				timeline: exp.timeline,
 				on_finish: function(data){
 					var complete = serverPsych.count() < 2 ? false : true;

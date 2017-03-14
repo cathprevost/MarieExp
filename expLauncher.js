@@ -611,7 +611,11 @@ function ExpLauncher(opts, canvas){
 				else if(block.type == 'similarity' || block.type == 'abx'){
 					//TODO handle cases where block could be a trial to use as is, or an actual bloc where we have to simply repeat or generate
 					//for now let's assume all ServerBlocks will ask us to generate a series of trials that are not all identical
-					block.timeline = block.is_practice ? practiceStimuli : stimuli;
+					block.timeline = Percept.intersperse({
+						timeline : block.is_practice ? practiceStimuli : stimuli,
+						trial: {type: 'text', text: "You can now take a break, press any key to continue / Vous pouvez prendre une pause, appuyez sur n'importe quelle touche pour continuer"},
+						reps: options.number_of_pauses
+					})
 				}
 				else if(block.type == 'categorize'){
 					//I moved the key codes to the main object because i needed the names of the categories there to build them, pull them back here
