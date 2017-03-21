@@ -142,7 +142,9 @@ function ExpLauncher(opts, canvas){
 			trial.data = {
 				distance: elem.dist + elem.firstStim === elem.secondStim ? 0 : options.wrapper.difficulty,
 				kind: elem.firstStim === elem.secondStim ? "same" : "different",
-				ans: elem.x
+				ans: elem.x,
+				firstStim : elem.firstStim,
+				secondStim: elem.secondStim
 			};
 			
 			timeline.push(trial);
