@@ -619,7 +619,7 @@ function ExpLauncher(opts, canvas){
 					else{
 						block.timeline = Percept.intersperse({
 							timeline : stimuli,
-							trial: {type: 'text', text: "You can now take a break, press any key to continue / Vous pouvez prendre une pause, appuyez sur n'importe quelle touche pour continuer"},
+							trial: {type: 'text', choices: [], text: "You can now take a break, press any key to continue / Vous pouvez prendre une pause, appuyez sur n'importe quelle touche pour continuer"},
 							reps: options.settings.number_of_pauses
 						})
 					}
