@@ -156,7 +156,6 @@ function ExpLauncher(opts, canvas){
 			trial.stimuli[0] = engine.singleDraw(trial.stimuli[0], options.components, options.density);
 			trial.stimuli[1] = engine.singleDraw(trial.stimuli[1], options.components, options.density);
 			trial.stimuli[2] = trial.stimuli[trial.data.ans];
-			trial.return_stim = false;
 			if(options.atEach){
 				options.atEach();
 			}
@@ -611,7 +610,7 @@ function ExpLauncher(opts, canvas){
 						prompt: block.message
 					};
 				}
-				else if(block.type == 'similarity' || block.type == 'abx'){
+				else if(block.type == 'abx'){
 					//TODO handle cases where block could be a trial to use as is, or an actual bloc where we have to simply repeat or generate
 					//for now let's assume all ServerBlocks will ask us to generate a series of trials that are not all identical
 					if(block.is_practice){
@@ -625,6 +624,15 @@ function ExpLauncher(opts, canvas){
 						})
 					}
 					
+				}
+				else if(block.type == 'similarity'){
+					if(block.is_practice){
+						block.timeline = practiceStimuli;
+					}
+					else{
+						block.timeline = stimuli;
+					}
+
 				}
 				else if(block.type == 'categorize'){
 					//I moved the key codes to the main object because i needed the names of the categories there to build them, pull them back here
@@ -681,6 +689,7 @@ function ExpLauncher(opts, canvas){
 	}
 	
 	function collectQuestionnaire(jsPsychTarget, inputDict){
+		
 		//I also propose an optional default function that scans all input or textarea elements inside the target element, and builds a key value pair
 		function findAllInput(elt){
 			var dict={};
