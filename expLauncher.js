@@ -156,6 +156,7 @@ function ExpLauncher(opts, canvas){
 			trial.stimuli[0] = engine.singleDraw(trial.stimuli[0], options.components, options.density);
 			trial.stimuli[1] = engine.singleDraw(trial.stimuli[1], options.components, options.density);
 			trial.stimuli[2] = trial.stimuli[trial.data.ans];
+			trial.return_stim = false;
 			if(options.atEach){
 				options.atEach();
 			}
@@ -619,7 +620,7 @@ function ExpLauncher(opts, canvas){
 					else{
 						block.timeline = Percept.intersperse({
 							timeline : stimuli,
-							trial: {type: 'text', choices: [], text: "You can now take a break, press any key to continue / Vous pouvez prendre une pause, appuyez sur n'importe quelle touche pour continuer"},
+							trial: {type: 'text', choices: jsPsych.ALL_KEYS, text: "You can now take a break, press any key to continue / Vous pouvez prendre une pause, appuyez sur n'importe quelle touche pour continuer"},
 							reps: options.settings.number_of_pauses
 						})
 					}
@@ -680,7 +681,29 @@ function ExpLauncher(opts, canvas){
 	}
 	
 	function collectQuestionnaire(jsPsychTarget, inputDict){
-		return inputDict;
+		//I also propose an optional default function that scans all input or textarea elements inside the target element, and builds a key value pair
+		function findAllInput(elt){
+			var dict={};
+			var inputElts = elt.find(":input"); //get all input elements within the target element
+			inputElts.each(function(idx, input){
+				input = $(input);
+				var name = input.attr("name");
+				var checked = input.prop('checked');
+				if( checked === undefined ){
+					//this is not a checkbox/radio
+					if($.trim(input.val()) != ''){
+						dict[name] = input.val();
+					}
+				}
+				else if(checked){
+					dict[name]=input.val()
+				}
+			});
+			//we have to reiterate because the previous selector gets ALL radio/checkbox with the same name
+			return dict;
+		}
+		
+		return findAllInput($(jsPsychTarget));
 	}
 	
 	//Stims is an array of objects, with only one member: stimuli, an array of two images
