@@ -131,6 +131,8 @@ function ExpLauncher(opts, canvas){
 			dist: distances
 		}, multiplier);
 		
+		rawTimeline = rawTimeline.slice(0, options.length);
+		
 		rawTimeline.forEach(function(elem){
 			var trial = {};
 			var vectors = engine.generateVectorPair({
